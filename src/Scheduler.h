@@ -2,67 +2,100 @@
 
 #include <atomic>
 #include <cstdint>
+#include <ctime>
 #include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <random>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "Config.h"
 #include "Process.h"
 
-// One CPU core. It is idle when process is null.
-struct CpuCore {
-    std::shared_ptr<Process> process;
-    uint64_t quantumUsed = 0; // rr: ticks used in the current time slice
-    uint64_t delayLeft = 0;   // delay-per-exec busy-wait ticks remaining
+// One row of screen -ls: a process on a core, or a finished process (core is -1).
+struct ProcessRow {
+    std::string name;
+    std::time_t createdAt = 0;
+    int core = -1;
+    uint64_t executed = 0;
+    uint64_t total = 0;
 };
 
-// Data shown by screen -ls and report-util.
-struct UtilizationSnapshot {
-    int coresUsed = 0;
-    int coresAvailable = 0;
-    std::vector<std::shared_ptr<Process>> running;
-    std::vector<std::shared_ptr<Process>> finished;
+// What screen -ls and report-util show.
+struct Utilization {
+    uint32_t coresUsed = 0;
+    uint32_t coreCount = 0;
+    std::vector<ProcessRow> running;  // processes on cores, in core order
+    std::vector<ProcessRow> finished; // in the order they finished
 };
 
-// Real-time CPU scheduler. A background thread advances the CPU tick counter
-// and runs the cores until the console exits.
+// What process-smi shows.
+struct ProcessView {
+    std::string name;
+    int id = 0;
+    std::vector<LogEntry> logs;
+    uint64_t executed = 0;
+    uint64_t total = 0;
+    bool finished = false;
+};
+
+// Real-time CPU scheduler. A background thread runs one CPU tick every 10 ms on all cores.
 class Scheduler {
 public:
-    explicit Scheduler(const Config& config);
+    Scheduler(const Config& config, uint64_t seed);
     ~Scheduler();
+    Scheduler(const Scheduler&) = delete;
+    Scheduler& operator=(const Scheduler&) = delete;
 
+    // Starts and stops the background thread that calls tick().
     void start();
     void stop();
 
-    // screen -s: creates a process with random instructions and queues it.
-    std::shared_ptr<Process> createProcess(const std::string& name);
+    // One CPU cycle: run every busy core, generate a batch process when due, wake sleepers whose
+    // sleep is over, and give idle cores the next ready processes.
+    void tick();
 
-    // screen -r: finds a process by name, or returns nullptr.
-    std::shared_ptr<Process> findProcess(const std::string& name) const;
+    // screen -s: creates a process with a random length in [min-ins, max-ins] and queues it.
+    // Returns false if the name is taken.
+    bool createProcess(const std::string& name);
 
-    // scheduler-start / scheduler-stop: generate p01, p02, ... every batch-process-freq ticks.
-    void startBatchGeneration();
-    void stopBatchGeneration();
+    // The process with this name, or nullopt if there is none.
+    std::optional<ProcessView> view(const std::string& name) const;
 
-    UtilizationSnapshot snapshot() const;
+    // scheduler-start / scheduler-stop. Return false if generation was already on / off.
+    bool startBatchGeneration();
+    bool stopBatchGeneration();
+
+    Utilization utilization() const;
 
 private:
-    // One pass is one CPU tick: generate due processes, dispatch (fcfs or rr), run each core.
-    void tickLoop();
+    struct CpuCore {
+        std::shared_ptr<Process> process; // null when idle
+        uint64_t quantumUsed = 0;         // ticks since this process was dispatched
+    };
+
+    void addProcess(const std::string& name);
+    std::string nextBatchName();
 
     Config config;
+    std::mt19937_64 rng;
     std::vector<CpuCore> cores;
-    std::vector<std::shared_ptr<Process>> processes; // every process, in creation order
     std::deque<std::shared_ptr<Process>> readyQueue;
+    std::multimap<uint64_t, std::shared_ptr<Process>> sleeping; // keyed by the tick they wake
+    std::vector<std::shared_ptr<Process>> finished;              // in the order they finished
+    std::unordered_map<std::string, std::shared_ptr<Process>> processes;
     uint64_t cpuTicks = 0;
+    uint64_t ticksSinceBatch = 0;
     int nextProcessId = 1;
     int nextBatchNumber = 1;
+    bool generatingBatch = false;
 
     std::atomic<bool> running{false};
-    std::atomic<bool> generatingBatch{false};
     std::thread tickThread;
     mutable std::mutex mutex;
 };
