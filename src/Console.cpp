@@ -22,12 +22,14 @@ void Console::printBanner() const {
 | |___   ___) | | |_| | |  __/  | |___   ___) |   | |
  \____| |____/   \___/  |_|     |_____| |____/    |_|
 )ART";
-    // TODO: replace the placeholder with the group members ("Last, First").
     std::cout << "-------------------------------------------------------\n"
               << "Welcome to CSOPESY Emulator!\n"
               << "\n"
               << "Developers:\n"
-              << "Last Name, First Name\n"
+              << "Campo, Benette Enzo\n"
+              << "Garcia, Andrea Gayle\n"
+              << "Morgan, Jack Owen\n"
+              << "Tenorio, Jeroen Ralph\n"
               << "\n"
               << "Last updated: 11-04-2026\n"
               << "-------------------------------------------------------\n"

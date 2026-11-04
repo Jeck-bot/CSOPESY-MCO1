@@ -3,7 +3,10 @@ CSOPESY MCO1 - Process Scheduler and CLI
 
 Group members
 -------------
-Last Name, First Name
+Campo, Benette Enzo
+Garcia, Andrea Gayle
+Morgan, Jack Owen
+Tenorio, Jeroen Ralph
 
 Entry point
 -----------
