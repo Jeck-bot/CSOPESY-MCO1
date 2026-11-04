@@ -1,20 +1,144 @@
 #include "Process.h"
 
+#include <algorithm>
 #include <utility>
 
-#include "Utils.h"
+namespace {
 
-Process::Process(int id, std::string name, std::vector<Instruction> instructions)
-    : id(id), name(std::move(name)), createdAt(currentTimestamp()), instructions(std::move(instructions)) {
-    // TODO: set totalLines from the instruction list, counting FOR bodies.
+uint16_t clampToUint16(int64_t value) {
+    return static_cast<uint16_t>(std::clamp<int64_t>(value, 0, UINT16_MAX));
 }
 
-void Process::executeNextInstruction(int core) {
-    // TODO: run the instruction at currentLine. PRINT appends to logs; DECLARE, ADD and
-    // SUBTRACT update variables clamped to [0, 65535]; SLEEP sets sleepTicksLeft;
-    // FOR runs its body. Mark the process FINISHED after the last instruction.
+} // namespace
+
+Process::Process(int id, std::string name, uint64_t totalInstructions, uint32_t seed)
+    : id(id), name(std::move(name)), createdAt(std::time(nullptr)), totalInstructions(totalInstructions),
+      rng(seed) {}
+
+StepResult Process::step(int core) {
+    const Instruction& instruction = nextInstruction();
+    execute(instruction, core);
+    ++executed;
+    if (executed >= totalInstructions) {
+        // A finished process releases its variables and loop state.
+        variables.clear();
+        loops.clear();
+        statement = Instruction();
+        return StepResult::FINISHED;
+    }
+    return instruction.type == InstructionType::SLEEP ? StepResult::SLEPT : StepResult::RAN;
+}
+
+void Process::execute(const Instruction& instruction, int core) {
+    switch (instruction.type) {
+    case InstructionType::PRINT: {
+        std::string text = instruction.message;
+        if (!instruction.variable.empty()) {
+            text += std::to_string(valueOf(instruction.variable));
+        }
+        logs.push_back({std::time(nullptr), core, std::move(text)});
+        break;
+    }
+    case InstructionType::DECLARE:
+        valueOf(instruction.variable) = instruction.first.value;
+        break;
+    case InstructionType::ADD: {
+        uint16_t sum = clampToUint16(int64_t{read(instruction.first)} + read(instruction.second));
+        valueOf(instruction.variable) = sum;
+        break;
+    }
+    case InstructionType::SUBTRACT: {
+        uint16_t difference = clampToUint16(int64_t{read(instruction.first)} - read(instruction.second));
+        valueOf(instruction.variable) = difference;
+        break;
+    }
+    case InstructionType::SLEEP:
+        sleepTicks = instruction.sleepTicks;
+        break;
+    case InstructionType::FOR:
+        break; // step() enters loops itself
+    }
+}
+
+void Process::startLoop(Instruction loop) {
+    loops.clear();
+    statement = std::move(loop);
+    loops.push_back({&statement, 0, statement.repeats});
+}
+
+int Process::getId() const {
+    return id;
+}
+
+const std::string& Process::getName() const {
+    return name;
+}
+
+std::time_t Process::getCreatedAt() const {
+    return createdAt;
+}
+
+uint64_t Process::getExecuted() const {
+    return executed;
+}
+
+uint64_t Process::getTotalInstructions() const {
+    return totalInstructions;
 }
 
 bool Process::isFinished() const {
-    return state == ProcessState::FINISHED;
+    return executed >= totalInstructions;
+}
+
+const std::vector<LogEntry>& Process::getLogs() const {
+    return logs;
+}
+
+const std::unordered_map<std::string, uint16_t>& Process::getVariables() const {
+    return variables;
+}
+
+uint8_t Process::getSleepTicks() const {
+    return sleepTicks;
+}
+
+const Instruction& Process::nextInstruction() {
+    while (true) {
+        if (loops.empty()) {
+            // Generate the next statement within the instructions left, so the total stays exact.
+            Instruction next = randomStatement(rng, name, 0, totalInstructions - executed);
+            if (next.type != InstructionType::FOR) {
+                statement = std::move(next);
+                return statement;
+            }
+            startLoop(std::move(next));
+            continue;
+        }
+
+        LoopFrame& frame = loops.back();
+        if (frame.next == frame.loop->body.size()) {
+            // End of the body: run it again or leave the loop.
+            if (--frame.repeatsLeft > 0) {
+                frame.next = 0;
+            } else {
+                loops.pop_back();
+            }
+            continue;
+        }
+
+        const Instruction& instruction = frame.loop->body[frame.next++];
+        if (instruction.type != InstructionType::FOR) {
+            return instruction;
+        }
+        loops.push_back({&instruction, 0, instruction.repeats});
+    }
+}
+
+uint16_t& Process::valueOf(const std::string& variable) {
+    // Variables used before being declared start at 0.
+    return variables.try_emplace(variable, 0).first->second;
+}
+
+uint16_t Process::read(const Operand& operand) {
+    return operand.isVariable ? valueOf(operand.variable) : operand.value;
 }

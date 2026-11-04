@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <istream>
 #include <string>
 
 enum class SchedulerType { FCFS, RR };
@@ -17,6 +18,9 @@ struct Config {
     uint64_t delayPerExec = 0;                   // delay-per-exec     [0, 2^32]
 };
 
-// Loads the space-separated "key value" file at path into config.
-// Returns false and sets error when the file is missing or a value is invalid.
+// Reads whitespace-separated "key value" pairs into config. Keys that are missing keep the
+// spec defaults. Returns false and sets error, leaving config unchanged, if a value is invalid.
+bool parseConfig(std::istream& input, Config& config, std::string& error);
+
+// Reads the config file at path with parseConfig.
 bool loadConfig(const std::string& path, Config& config, std::string& error);
