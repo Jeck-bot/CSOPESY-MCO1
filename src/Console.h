@@ -4,29 +4,29 @@
 #include <string>
 
 #include "Config.h"
-#include "Process.h"
 #include "Scheduler.h"
 
 // The main menu console and the process screens: shows the UI, recognizes commands, and runs them.
 class Console {
 public:
-    // Prints the banner and reads commands until "exit".
+    // Prints the banner and reads commands until "exit" or the end of input.
     void run();
 
 private:
     void printBanner() const;
-    void handleCommand(const std::string& line);
 
-    // Main menu commands
+    // Runs one main menu command. Returns false when the console should close.
+    bool handleCommand(const std::string& line);
+
     void initialize();                          // initialize
-    void screenCreate(const std::string& name); // screen -s <name>
-    void screenResume(const std::string& name); // screen -r <name>
+    bool screenCreate(const std::string& name); // screen -s <name>
+    bool screenResume(const std::string& name); // screen -r <name>
     void screenList() const;                    // screen -ls
     void reportUtil() const;                    // report-util
 
-    // Process screen: handles process-smi until "exit"
-    void attach(const std::shared_ptr<Process>& process);
-    void printProcessInfo(const Process& process) const;
+    // Process screen: handles process-smi until "exit". Returns false at the end of input.
+    bool attach(const std::string& name);
+    void printProcessInfo(const ProcessView& process) const;
 
     // Text shared by screen -ls and report-util
     std::string utilizationReport() const;
