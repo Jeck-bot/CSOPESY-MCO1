@@ -622,6 +622,27 @@ TEST(randomProcessesRunExactlyTheirLength) {
     CHECK(released);
 }
 
+TEST(processesAlternatePrintAndAddOnX) {
+    Process process(1, "p", 100, 3);
+    CHECK(hasValue(process, "x", 0));
+    uint16_t x = 0;
+    bool alternates = true;
+    for (int i = 0; i < 100; ++i) {
+        size_t logsBefore = process.getLogs().size();
+        process.step(0);
+        if (i % 2 == 0) {
+            alternates = alternates && process.getLogs().size() == logsBefore + 1 &&
+                         process.getLogs().back().text == "Value from: " + std::to_string(x);
+        } else if (i < 99) {
+            uint16_t now = process.getVariables().at("x");
+            alternates = alternates && process.getLogs().size() == logsBefore && now >= x + 1 && now <= x + 10;
+            x = now;
+        }
+    }
+    CHECK(alternates);
+    CHECK(process.isFinished());
+}
+
 // ---- Scheduler ----
 
 namespace {
@@ -854,30 +875,6 @@ TEST(delayPerExecSpacesInstructions) {
         }
     }
     CHECK(spaced);
-    CHECK(hasFinished(scheduler, "a"));
-}
-
-TEST(sleepingProcessLeavesTheCoreForOneToTenTicks) {
-    Scheduler scheduler(testConfig(1, SchedulerType::FCFS, 5, 300, 300, 0), 2);
-    scheduler.createProcess("a");
-    scheduler.tick();
-    int idleRun = 0;
-    int gaps = 0;
-    bool gapsInRange = true;
-    for (int t = 0; t < 5000 && !hasFinished(scheduler, "a"); ++t) {
-        scheduler.tick();
-        if (scheduler.utilization().coresUsed == 0 && !hasFinished(scheduler, "a")) {
-            ++idleRun;
-        } else {
-            if (idleRun > 0) {
-                ++gaps;
-                gapsInRange = gapsInRange && idleRun <= 10;
-            }
-            idleRun = 0;
-        }
-    }
-    CHECK(gaps > 0);
-    CHECK(gapsInRange);
     CHECK(hasFinished(scheduler, "a"));
 }
 
