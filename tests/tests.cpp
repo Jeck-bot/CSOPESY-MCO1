@@ -731,7 +731,7 @@ TEST(batchGenerationCreatesAProcessEveryFrequencyTicks) {
     Scheduler scheduler(testConfig(1, SchedulerType::FCFS, 5, 1000, 1000, 0, 3), 1);
     CHECK(scheduler.startBatchGeneration());
     CHECK(!scheduler.startBatchGeneration());
-    for (int i = 0; i < 9; ++i) {
+    for (uint64_t i = 0; i < 9 * kTicksPerBatchCycle; ++i) {
         scheduler.tick();
     }
     CHECK(scheduler.view("p01").has_value());
@@ -740,7 +740,7 @@ TEST(batchGenerationCreatesAProcessEveryFrequencyTicks) {
     CHECK(!scheduler.view("p04").has_value());
     CHECK(scheduler.stopBatchGeneration());
     CHECK(!scheduler.stopBatchGeneration());
-    for (int i = 0; i < 30; ++i) {
+    for (uint64_t i = 0; i < 30 * kTicksPerBatchCycle; ++i) {
         scheduler.tick();
     }
     CHECK(!scheduler.view("p04").has_value());
@@ -750,7 +750,7 @@ TEST(batchNamesSkipTakenNamesAndGrowPastTwoDigits) {
     Scheduler scheduler(testConfig(1, SchedulerType::FCFS, 5, 1000, 1000, 0, 1), 1);
     scheduler.createProcess("p01");
     scheduler.startBatchGeneration();
-    for (int i = 0; i < 100; ++i) {
+    for (uint64_t i = 0; i < 100 * kTicksPerBatchCycle; ++i) {
         scheduler.tick();
     }
     CHECK(scheduler.view("p02").has_value());
@@ -762,7 +762,7 @@ TEST(batchNamesSkipTakenNamesAndGrowPastTwoDigits) {
 TEST(everyProcessFinishesAfterExactlyItsLength) {
     Scheduler scheduler(testConfig(4, SchedulerType::RR, 2, 1, 60, 0, 1), 3);
     scheduler.startBatchGeneration();
-    for (int i = 0; i < 200; ++i) {
+    for (uint64_t i = 0; i < 200 * kTicksPerBatchCycle; ++i) {
         scheduler.tick();
     }
     scheduler.stopBatchGeneration();
