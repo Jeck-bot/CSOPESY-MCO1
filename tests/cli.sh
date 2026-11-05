@@ -67,7 +67,7 @@ run "$QUICK" "echo initialize; echo 'screen -s A'; sleep 3; echo process-smi; ec
 expect "process name" '^Process name: A$'
 expect "process id" '^ID: 1$'
 expect "logs header" '^Logs:$'
-expect "log line format" '^\([0-9]{2}/[0-9]{2}/[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}(AM|PM)\) Core:[0-9]+ "Hello world from A!"$'
+expect "log line format" '^\([0-9]{2}/[0-9]{2}/[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}(AM|PM)\) Core:[0-9]+ "Value from: [0-9]+"$'
 expect "finished" '^Finished!$'
 expect "screen -r on a finished process" '^Process A not found\.$'
 expect "screen -s on a finished name" '^Process A already exists\.$'
