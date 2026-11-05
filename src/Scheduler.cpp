@@ -76,7 +76,7 @@ void Scheduler::tick() {
         }
     }
 
-    if (generatingBatch && ++ticksSinceBatch >= config.batchProcessFreq) {
+    if (generatingBatch && ++ticksSinceBatch >= config.batchProcessFreq * kTicksPerBatchCycle) {
         ticksSinceBatch = 0;
         addProcess(nextBatchName());
     }
