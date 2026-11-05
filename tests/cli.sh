@@ -90,8 +90,8 @@ verify "screen -ls spellings" test "$(count '^Running processes:$')" -eq 2
 expect "scheduler-test starts generation" '^Scheduler started generating processes\.$'
 expect "scheduler-stop stops generation" '^Scheduler stopped generating processes\.$'
 
-# scheduler-start makes p01, p02, ... every tick here; scheduler-stop ends it. About 2 s of generation
-# makes at most ~200 processes, so p450 can only exist if generation went on after the stop.
+# scheduler-start makes p01, p02, ... every batch cycle (200 ms) here; scheduler-stop ends it. About 2 s
+# of generation makes about 10 processes, so p450 can only exist if generation went on after the stop.
 run "$BATCH" "echo initialize; echo scheduler-start; echo scheduler-start; sleep 2; echo scheduler-stop; echo scheduler-stop; sleep 4; echo 'screen -ls'; echo 'screen -r p05'; echo exit; echo 'screen -r p450'; echo exit"
 expect "already generating" '^Scheduler is already generating processes\.$'
 expect "not generating" '^Scheduler is not generating processes\.$'
