@@ -1,6 +1,7 @@
 #include "Process.h"
 
 #include <algorithm>
+#include <random>
 #include <utility>
 
 namespace {
@@ -13,7 +14,9 @@ uint16_t clampToUint16(int64_t value) {
 
 Process::Process(int id, std::string name, uint64_t totalInstructions, uint32_t seed)
     : id(id), name(std::move(name)), createdAt(std::time(nullptr)), totalInstructions(totalInstructions),
-      rng(seed) {}
+      rng(seed) {
+    variables["x"] = 0; // every process starts with x = 0 in its symbol table
+}
 
 StepResult Process::step(int core) {
     const Instruction& instruction = nextInstruction();
@@ -105,14 +108,23 @@ uint8_t Process::getSleepTicks() const {
 const Instruction& Process::nextInstruction() {
     while (true) {
         if (loops.empty()) {
-            // Generate the next statement within the instructions left, so the total stays exact.
-            Instruction next = randomStatement(rng, name, 0, totalInstructions - executed);
-            if (next.type != InstructionType::FOR) {
-                statement = std::move(next);
-                return statement;
+            // Instructions alternate PRINT("Value from: " + x), ADD(x, x, [1-10]), PRINT, ADD, ...
+            // ponytail: replaces randomStatement for the quiz; switch back to
+            // randomStatement(rng, name, 0, totalInstructions - executed) for the random mix.
+            Instruction next;
+            if (executed % 2 == 0) {
+                next.type = InstructionType::PRINT;
+                next.message = "Value from: ";
+                next.variable = "x";
+            } else {
+                next.type = InstructionType::ADD;
+                next.variable = "x";
+                next.first.isVariable = true;
+                next.first.variable = "x";
+                next.second.value = static_cast<uint16_t>(std::uniform_int_distribution<int>(1, 10)(rng));
             }
-            startLoop(std::move(next));
-            continue;
+            statement = std::move(next);
+            return statement;
         }
 
         LoopFrame& frame = loops.back();
