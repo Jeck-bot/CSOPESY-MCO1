@@ -1,4 +1,6 @@
 // Unit tests for the CSOPESY emulator. How to build and run them: see handover.txt.
+// Usage, from the repo root: msbuild tests\CSOPESY.Tests.vcxproj /p:Configuration=Debug /p:Platform=x64,
+// then run tests\x64\Debug\CSOPESY.Tests.exe. Expect "0 failures".
 
 #include <algorithm>
 #include <chrono>
